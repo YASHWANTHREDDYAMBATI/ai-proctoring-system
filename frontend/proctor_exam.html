@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <title>Proctored Exam</title>
+
+    <link rel="stylesheet"
+          href="styles.css">
+
+</head>
+
+<body>
+
+    <div class="exam-container">
+
+        <div class="exam-header">
+
+            <h1 id="examTitle">
+                Proctored Exam
+            </h1>
+
+<div class="timer-box">
+
+    ⏱ <span id="timer">30:00</span>
+
+</div>
+
+        </div>
+
+        <div class="exam-layout">
+
+            <div class="question-panel">
+
+                <div class="exam-progress">
+
+                    <div class="progress-track">
+                        <div id="progressFill" class="progress-fill"></div>
+                    </div>
+
+                    <span id="questionProgress" class="progress-label">Question 1 of 1</span>
+
+                </div>
+
+                <div id="content"></div>
+
+                <div class="question-nav">
+
+                    <button id="prevBtn"
+                            class="nav-btn"
+                            onclick="prevQuestion()">
+
+                        &larr; Previous
+
+                    </button>
+
+                    <button id="nextBtn"
+                            class="nav-btn"
+                            onclick="nextQuestion()">
+
+                        Next &rarr;
+
+                    </button>
+
+                    <button id="submitBtn"
+                            class="submit-btn"
+                            onclick="submitExam()"
+                            style="display:none;">
+
+                        Submit Exam
+
+                    </button>
+
+                </div>
+
+            </div>
+
+            <div class="proctor-panel">
+
+                <div class="proctor-panel-header">
+
+                    <h3>Live Monitoring</h3>
+
+                    <button id="toggleMonitorBtn"
+                            class="toggle-monitor-btn"
+                            onclick="toggleMonitorPanel()">
+
+                        Hide
+
+                    </button>
+
+                </div>
+
+                <p id="monitorHiddenNote"
+                   class="monitor-hidden-note"
+                   style="display:none;">
+
+                    Monitoring is active in the background.
+
+                </p>
+
+                <div id="monitorBody">
+
+                    <video id="video"
+                           autoplay
+                           playsinline>
+                    </video>
+
+                    <canvas id="canvas"
+                            style="display:none;">
+                    </canvas>
+
+                    <div class="status-card">
+
+                        <p>
+
+                            <strong>Face:</strong>
+
+                            <span id="faceStatus">
+
+                                --
+
+                            </span>
+
+                        </p>
+
+                        <p>
+
+                            <strong>Attention:</strong>
+
+                            <span id="attentionStatus">
+
+                                Looking Forward
+
+                            </span>
+
+                        </p>
+
+                        <p>
+
+                            <strong>Persons Detected:</strong>
+
+                            <span id="personStatus">--</span>
+
+                        </p>
+
+                        <p>
+
+                            <strong>Mobile Phone:</strong>
+
+                            <span id="phoneStatus">Not Detected</span>
+
+                        </p>
+
+                    </div>
+
+                </div>
+
+                <div id="status"></div>
+
+                <div id="error"></div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- MediaPipe FaceMesh -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+
+    <script src="proctor_exam.js"></script>
+
+</body>
+
+</html>

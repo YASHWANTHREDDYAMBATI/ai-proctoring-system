@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <meta charset="UTF-8">
+    <title>Student Dashboard</title>
+
+    <link rel="stylesheet" href="student_dashboard.css">
+
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+</head>
+
+<body>
+
+    <div class="sidebar">
+
+        <div class="logo">
+
+            <i class="fas fa-user-graduate"></i>
+
+            <h2>AI Proctoring</h2>
+
+        </div>
+
+        <ul>
+
+            <li onclick="showDashboard()">
+
+                <i class="fas fa-house"></i>
+
+                Dashboard
+
+            </li>
+
+            <li onclick="viewExams()">
+
+                <i class="fas fa-file-lines"></i>
+
+                Available Exams
+
+            </li>
+
+            <li onclick="viewResults()">
+
+                <i class="fas fa-chart-column"></i>
+
+                My Results
+
+            </li>
+
+            <li onclick="showChangePassword()">
+
+                <i class="fas fa-key"></i>
+
+                Change Password
+
+            </li>
+
+            <li onclick="logout()">
+
+                <i class="fas fa-right-from-bracket"></i>
+
+                Logout
+
+            </li>
+
+        </ul>
+
+    </div>
+
+    <div class="main-content">
+
+        <div class="top-bar">
+
+            <h1>Student Dashboard</h1>
+
+            <span id="welcome"></span>
+
+        </div>
+
+        <div id="content"></div>
+
+    </div>
+
+    <!-- ================= Review Answer Modal ================= -->
+
+    <div id="studentAnswersModal"
+         class="modal"
+         style="display:none;">
+
+        <div class="modal-content"
+             style="width:85%;max-height:85vh;overflow:auto;">
+
+            <span class="close"
+                  onclick="closeStudentAnswersModal()">
+
+                &times;
+
+            </span>
+
+            <h2>
+
+                My Answer Sheet
+
+            </h2>
+
+            <div id="studentAnswersContent">
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+
+        document.getElementById("welcome").innerText =
+            "Welcome, " +
+            localStorage.getItem("student_name");
+
+        function showDashboard() {
+
+            const studentName =
+                localStorage.getItem("student_name");
+
+            document.getElementById("content").innerHTML = `
+
+                <div class="section-box">
+
+                    <div style="
+                        display:flex;
+                        justify-content:space-between;
+                        align-items:center;
+                        flex-wrap:wrap;
+                        gap:20px;
+                    ">
+
+                        <div>
+
+                            <h1>
+
+                                Welcome Back,
+                                ${studentName} 👋
+
+                            </h1>
+
+                            <br>
+
+                            <p style="
+                                color:#64748b;
+                                line-height:1.8;
+                                font-size:18px;
+                            ">
+
+                                You can attempt examinations,
+                                track your academic performance,
+                                review results and participate in
+                                AI-proctored assessments.
+
+                            </p>
+
+                            <br>
+
+                            <div style="
+                                display:flex;
+                                flex-direction:column;
+                                gap:12px;
+                            ">
+
+                                <span style="color:#16a34a;">
+                                    ✅ Examination Portal Ready
+                                </span>
+
+                                <span style="color:#16a34a;">
+                                    ✅ AI Monitoring Enabled
+                                </span>
+
+                                <span style="color:#16a34a;">
+                                    ✅ Results Module Available
+                                </span>
+
+                            </div>
+
+                        </div>
+
+                        <div>
+
+                            <i class="fas fa-user-graduate"
+                               style="
+                               font-size:120px;
+                               color:#2563eb;
+                            ">
+                            </i>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            `;
+
+        }
+
+        showDashboard();
+
+        function showChangePassword() {
+
+            const rollNo = localStorage.getItem("student_roll") || "";
+
+            document.getElementById("content").innerHTML = `
+            <div class="section-box" style="max-width:480px">
+
+                <h2 style="margin-bottom:20px">
+
+                    Change Password
+
+                </h2>
+
+                <form id="changePwForm"
+                      style="display:flex;flex-direction:column;gap:14px">
+
+                    <input type="password"
+                           id="cp_current"
+                           placeholder="Current Password"
+                           required>
+
+                    <input type="password"
+                           id="cp_new"
+                           placeholder="New Password"
+                           required>
+
+                    <input type="password"
+                           id="cp_confirm"
+                           placeholder="Confirm New Password"
+                           required>
+
+                    <button type="submit">
+
+                        Update Password
+
+                    </button>
+
+                </form>
+
+                <p id="cpMsg"></p>
+
+            </div>`;
+
+            document.getElementById("changePwForm").addEventListener("submit", async (e) => {
+
+                e.preventDefault();
+
+                const msg =
+                    document.getElementById("cpMsg");
+
+                const newPw =
+                    document.getElementById("cp_new").value;
+
+                const confirmPw =
+                    document.getElementById("cp_confirm").value;
+
+                if(newPw!==confirmPw){
+
+                    msg.style.color="red";
+
+                    msg.innerText="New passwords do not match.";
+
+                    return;
+
+                }
+
+                if(newPw.length<6){
+
+                    msg.style.color="red";
+
+                    msg.innerText="Password must be at least 6 characters.";
+
+                    return;
+
+                }
+
+                try{
+
+                    const resp =
+                        await fetch(
+                            "http://127.0.0.1:8000/student/change-password",
+                            {
+                                method:"POST",
+                                headers:{
+                                    "Content-Type":"application/json"
+                                },
+                                body:JSON.stringify({
+
+                                    student_id:localStorage.getItem("student_id"),
+
+                                    current_password:document.getElementById("cp_current").value,
+
+                                    new_password:newPw
+
+                                })
+
+                            }
+                        );
+
+                    const data =
+                        await resp.json();
+
+                    if(data.message==="Password changed successfully"){
+
+                        msg.style.color="green";
+
+                        msg.innerText="Password changed! Please log in again.";
+
+                        setTimeout(()=>{
+
+                            localStorage.removeItem("student_id");
+
+                            localStorage.removeItem("student_name");
+
+                            window.location.href="index.html";
+
+                        },2000);
+
+                    }
+
+                    else{
+
+                        msg.style.color="red";
+
+                        msg.innerText=data.message;
+
+                    }
+
+                }
+
+                catch(err){
+
+                    msg.style.color="red";
+
+                    msg.innerText="Unable to connect to server.";
+
+                }
+
+            });
+
+        }
+
+    </script>
+
+    <script src="script.js"></script>
+
+    <script src="student_dashboard.js"></script>
+
+</body>
+
+</html>

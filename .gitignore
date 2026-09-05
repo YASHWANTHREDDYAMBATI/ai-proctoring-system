@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environment (machine-specific; recreate locally with requirements.txt)
+venv/
+
+# Secrets
+.env
+
+# Runtime-generated proctoring capture uploads (recreated automatically at startup)
+uploads/*

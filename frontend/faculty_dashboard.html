@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <title>Faculty Dashboard</title>
+
+    <link rel="stylesheet" href="faculty_dashboard.css">
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- jsPDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+</head>
+
+
+<body>
+
+
+<!-- ===================================== -->
+<!-- SIDEBAR -->
+<!-- ===================================== -->
+
+<div class="sidebar">
+
+    <div class="logo">
+
+        <i class="fas fa-shield-alt"></i>
+
+        <h2>AI Proctoring</h2>
+
+    </div>
+
+
+    <ul>
+
+        <li onclick="showDashboard()">
+
+            <i class="fas fa-house"></i>
+
+            Dashboard
+
+        </li>
+
+
+        <li onclick="showCreateExam()">
+
+            <i class="fas fa-file-circle-plus"></i>
+
+            Create Exam
+
+        </li>
+
+
+        <li onclick="showResults()">
+
+            <i class="fas fa-chart-column"></i>
+
+            Results
+
+        </li>
+
+
+        <li onclick="showProctoring()">
+
+            <i class="fas fa-shield-halved"></i>
+
+            Proctoring
+
+        </li>
+
+
+        <li onclick="showManageExams()">
+
+            <i class="fas fa-trash-can"></i>
+
+            Manage Exams
+
+        </li>
+
+
+        <li onclick="showAnalytics()">
+
+            <i class="fas fa-robot"></i>
+
+            AI Analytics
+
+        </li>
+
+
+        <li onclick="showChangePassword()">
+
+            <i class="fas fa-key"></i>
+
+            Change Password
+
+        </li>
+
+
+        <li onclick="logout()">
+
+            <i class="fas fa-right-from-bracket"></i>
+
+            Logout
+
+        </li>
+
+    </ul>
+
+</div>
+
+
+
+<!-- ===================================== -->
+<!-- MAIN CONTENT -->
+<!-- ===================================== -->
+
+<div class="main-content">
+
+    <div class="top-bar">
+
+        <h1>Faculty Dashboard</h1>
+
+        <span id="welcome"></span>
+
+    </div>
+
+
+    <div id="content-area">
+
+    </div>
+
+</div>
+
+
+
+<!-- ===================================== -->
+<!-- STUDENT RESULT REVIEW MODAL -->
+<!-- ===================================== -->
+
+<div id="reviewModal"
+     class="modal"
+     style="display:none;">
+
+    <div class="modal-content">
+
+        <span class="close"
+              onclick="closeReviewModal()">
+
+            &times;
+
+        </span>
+
+
+        <h2>
+            Student Result Review
+        </h2>
+
+
+        <div id="reviewContent">
+
+        </div>
+
+
+        <!--
+            Approve Result and Keep Invalid
+            buttons are generated dynamically
+            by reviewStudent().
+        -->
+
+        <div class="modal-buttons">
+
+            <button onclick="closeReviewModal()">
+
+                Close
+
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<!-- ===================================== -->
+<!-- STUDENT ANSWERS MODAL -->
+<!-- ===================================== -->
+
+<div id="answersModal"
+     class="modal"
+     style="display:none;">
+
+    <div class="modal-content"
+         style="
+             width:85%;
+             max-height:85vh;
+             overflow:auto;
+         ">
+
+        <span class="close"
+              onclick="closeAnswersModal()">
+
+            &times;
+
+        </span>
+
+
+        <h2>
+            Student Answer Sheet
+        </h2>
+
+
+        <div id="answersContent">
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<!-- ===================================== -->
+<!-- FACULTY DASHBOARD JAVASCRIPT -->
+<!-- ===================================== -->
+
+<script src="faculty_dashboard.js"></script>
+
+
+</body>
+
+</html>

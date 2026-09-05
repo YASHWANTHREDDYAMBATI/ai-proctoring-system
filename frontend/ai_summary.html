@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Analytics Dashboard</title>
+    <link rel="stylesheet" href="ai_summary.css">
+</head>
+
+<body>
+
+    <div class="container">
+
+        <h1>AI Analytics Dashboard</h1>
+
+        <div class="card-container">
+
+            <div class="card" onclick="showStudentSection()">
+                <h2>Student Analytics</h2>
+                <p>Individual student performance review.</p>
+            </div>
+
+            <div class="card" onclick="showExamSection()">
+                <h2>Exam Analytics</h2>
+                <p>Review a selected exam.</p>
+            </div>
+
+            <div class="card" onclick="showOverallSection()">
+                <h2>Overall Analytics</h2>
+                <p>Overall review of all exams.</p>
+            </div>
+
+        </div>
+
+        <button onclick="window.location.href='faculty_dashboard.html'">
+            Back to Dashboard
+        </button>
+
+    </div>
+
+    <script src="ai_summary.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Super Admin Dashboard</title>
+    <link rel="stylesheet" href="faculty_dashboard.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="logo">
+            <i class="fas fa-user-shield"></i>
+            <h2>Super Admin</h2>
+        </div>
+        <ul>
+            <li onclick="showHome()"><i class="fas fa-house"></i> Dashboard</li>
+            <li onclick="showStudents()"><i class="fas fa-user-graduate"></i> Manage Students</li>
+            <li onclick="showFaculty()"><i class="fas fa-chalkboard-teacher"></i> Manage Faculty</li>
+            <li onclick="showCreateExam()"><i class="fas fa-file-circle-plus"></i> Create Exam</li>
+            <li onclick="showManageExams()"><i class="fas fa-trash-can"></i> Manage Exams</li>
+            <li onclick="showProctoring()"><i class="fas fa-shield-halved"></i> Proctoring</li>
+            <li onclick="showAnalytics()"><i class="fas fa-robot"></i> AI Analytics</li>
+            <li onclick="showChangePassword()"><i class="fas fa-key"></i> Change Password</li>
+            <li onclick="logout()"><i class="fas fa-right-from-bracket"></i> Logout</li>
+        </ul>
+    </div>
+
+    <div class="main-content">
+        <div class="top-bar">
+            <h1>Super Admin Dashboard</h1>
+            <span id="welcome"></span>
+        </div>
+        <div id="content-area"></div>
+    </div>
+
+    <script src="superadmin_dashboard.js"></script>
+</body>
+</html>

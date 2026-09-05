@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Exam Analytics</title>
+    <link rel="stylesheet" href="ai_summary.css">
+</head>
+<body>
+
+<div class="container">
+
+    <h2>Exam Analytics</h2>
+
+    <input type="number"
+           id="examId"
+           placeholder="Enter Exam ID">
+
+    <button onclick="getExamSummary()">
+        Get AI Summary
+    </button>
+
+    <div id="summaryBox" style="margin-top:20px;">
+    </div>
+
+    <button onclick="window.location.href='ai_summary.html'">
+        Back
+    </button>
+
+</div>
+
+<script src="exam_analytics.js"></script>
+
+</body>
+</html>

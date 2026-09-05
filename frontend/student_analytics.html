@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Student Analytics</title>
+    <link rel="stylesheet" href="ai_summary.css">
+</head>
+
+<body>
+
+    <div class="container">
+
+        <h2>Student Analytics</h2>
+
+        <input
+            type="number"
+            id="studentId"
+            placeholder="Enter Student ID">
+
+        <button onclick="getStudentSummary()">
+            Get AI Summary
+        </button>
+
+        <div id="summaryBox" style="margin-top:20px;">
+        </div>
+
+        <button onclick="window.location.href='ai_summary.html'">
+            Back
+        </button>
+
+    </div>
+
+    <script src="student_analytics.js"></script>
+
+</body>
+</html>

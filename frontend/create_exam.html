@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Create Exam</title>
+    <link rel="stylesheet" href="create_exam.css">
+</head>
+<body>
+
+    <div class="container">
+
+        <h2>Create Exam</h2>
+
+        <form id="examForm">
+
+            <input
+                type="text"
+                id="exam_name"
+                placeholder="Exam Name"
+                required
+            >
+
+            <input
+                type="number"
+                id="duration"
+                placeholder="Duration (minutes)"
+                required
+            >
+
+            <button type="submit">
+                Create Exam
+            </button>
+
+        </form>
+
+        <p id="message"></p>
+
+        <button onclick="window.location.href='faculty_dashboard.html'">
+            Back to Dashboard
+        </button>
+
+    </div>
+
+    <script src="create_exam.js"></script>
+
+</body>
+</html>

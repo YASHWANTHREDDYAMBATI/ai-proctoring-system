@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Add Question</title>
+    <link rel="stylesheet" href="add_question.css">
+</head>
+<body>
+
+    <div class="container">
+
+        <h2>Add Question</h2>
+
+        <form id="questionForm">
+
+            <select id="exam_id" required>
+                <option value="">Select Exam</option>
+            </select>
+
+            <textarea
+                id="question_text"
+                placeholder="Enter Question"
+                required>
+            </textarea>
+
+            <input type="text"
+                   id="option_a"
+                   placeholder="Option A"
+                   required>
+
+            <input type="text"
+                   id="option_b"
+                   placeholder="Option B"
+                   required>
+
+            <input type="text"
+                   id="option_c"
+                   placeholder="Option C"
+                   required>
+
+            <input type="text"
+                   id="option_d"
+                   placeholder="Option D"
+                   required>
+
+            <select id="correct_option" required>
+                <option value="">Correct Option</option>
+                <option value="A">A</option>
+                <option value="B">B</option>
+                <option value="C">C</option>
+                <option value="D">D</option>
+            </select>
+
+            <button type="submit">
+                Add Question
+            </button>
+
+        </form>
+
+        <p id="message"></p>
+
+        <button onclick="window.location.href='faculty_dashboard.html'">
+            Back to Dashboard
+        </button>
+
+    </div>
+
+    <script src="add_question.js"></script>
+
+</body>
+</html>
