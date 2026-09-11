@@ -67,16 +67,21 @@ def _exam_to_dict(row):
 
 def mark_expired_assignments_not_given(conn):
     """Mark only unstarted assignments whose availability window has closed."""
+
     result = conn.execute(
         text("""
             UPDATE exam_assignments ea
-            JOIN exams e ON e.exam_id = ea.exam_id
+            JOIN exams e
+                ON e.exam_id = ea.exam_id
             SET ea.attendance_status = 'Not Given'
             WHERE ea.attendance_status = 'Assigned'
               AND e.availability_end IS NOT NULL
-              AND NOW() >= e.availability_end
+              AND (
+                  NOW() + INTERVAL 330 MINUTE
+              ) >= e.availability_end
         """)
     )
+
     return result.rowcount
 
 app = FastAPI()
@@ -354,6 +359,7 @@ def get_exams(student_id: int = None):
 
         if student_id:
             mark_expired_assignments_not_given(conn)
+
             result = conn.execute(
                 text("""
                     SELECT e.*, ea.attendance_status AS assignment_status
@@ -369,87 +375,145 @@ def get_exams(student_id: int = None):
                               ea.attendance_status = 'Assigned'
                               AND e.availability_start IS NOT NULL
                               AND e.availability_end IS NOT NULL
-                              AND NOW() >= e.availability_start
-                              AND NOW() < e.availability_end
+                              AND (NOW() + INTERVAL 330 MINUTE) >= e.availability_start
+                              AND (NOW() + INTERVAL 330 MINUTE) < e.availability_end
                           )
                           OR (
                               ea.attendance_status = 'Started'
                               AND ea.deadline_at IS NOT NULL
-                              AND NOW() <= ea.deadline_at
+                              AND (NOW() + INTERVAL 330 MINUTE) <= ea.deadline_at
                           )
                       )
                     ORDER BY e.exam_id
                 """),
                 {"sid": student_id}
             )
+
         else:
-            result = conn.execute(text("SELECT * FROM exams"))
+            result = conn.execute(
+                text("SELECT * FROM exams")
+            )
 
         exams = []
 
         for row in result:
+
             exam = _exam_to_dict(row)
+
             if student_id:
                 exam["assignment_status"] = row.assignment_status
+
             exams.append(exam)
 
         return exams
-
-
 @app.post("/exam/{exam_id}/start")
 def start_exam_attempt(exam_id: int, data: dict = Body(...)):
     student_id = data.get("student_id")
-    if not isinstance(student_id, int) or student_id <= 0:
-        raise HTTPException(status_code=400, detail="student_id must be a positive integer.")
 
-    # Commit lifecycle synchronization independently so a rejected start request
-    # cannot roll back an otherwise valid Assigned -> Not Given transition.
+    if not isinstance(student_id, int) or student_id <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="student_id must be a positive integer."
+        )
+
     with engine.begin() as sync_conn:
         mark_expired_assignments_not_given(sync_conn)
 
     with engine.begin() as conn:
+
         student = conn.execute(
-            text("SELECT student_id FROM students WHERE student_id = :student_id"),
-            {"student_id": student_id}
+            text("""
+                SELECT student_id
+                FROM students
+                WHERE student_id = :student_id
+            """),
+            {
+                "student_id": student_id
+            }
         ).fetchone()
+
         if not student:
-            raise HTTPException(status_code=404, detail="Student not found.")
+            raise HTTPException(
+                status_code=404,
+                detail="Student not found."
+            )
 
         attempt = conn.execute(
             text("""
                 SELECT
-                    e.exam_id, e.duration, e.availability_start, e.availability_end,
-                    ea.attendance_status, ea.started_at, ea.deadline_at, ea.submitted_at,
+                    e.exam_id,
+                    e.duration,
+                    e.availability_start,
+                    e.availability_end,
+                    ea.attendance_status,
+                    ea.started_at,
+                    ea.deadline_at,
+                    ea.submitted_at,
                     NOW() AS database_now
                 FROM exam_assignments ea
-                JOIN exams e ON e.exam_id = ea.exam_id
+                JOIN exams e
+                    ON e.exam_id = ea.exam_id
                 WHERE ea.exam_id = :exam_id
                   AND ea.student_id = :student_id
                 FOR UPDATE
             """),
-            {"exam_id": exam_id, "student_id": student_id}
+            {
+                "exam_id": exam_id,
+                "student_id": student_id
+            }
         ).fetchone()
 
         if not attempt:
+
             exam_exists = conn.execute(
-                text("SELECT exam_id FROM exams WHERE exam_id = :exam_id"),
-                {"exam_id": exam_id}
+                text("""
+                    SELECT exam_id
+                    FROM exams
+                    WHERE exam_id = :exam_id
+                """),
+                {
+                    "exam_id": exam_id
+                }
             ).fetchone()
+
             if not exam_exists:
-                raise HTTPException(status_code=404, detail="Exam not found.")
-            raise HTTPException(status_code=403, detail="This exam is not assigned to this student.")
+                raise HTTPException(
+                    status_code=404,
+                    detail="Exam not found."
+                )
+
+            raise HTTPException(
+                status_code=403,
+                detail="This exam is not assigned to this student."
+            )
 
         if attempt.attendance_status == "Submitted":
-            raise HTTPException(status_code=409, detail="This exam has already been submitted.")
+
+            raise HTTPException(
+                status_code=409,
+                detail="This exam has already been submitted."
+            )
+
         if attempt.attendance_status == "Not Given":
-            raise HTTPException(status_code=403, detail="This exam is no longer available to start.")
+
+            raise HTTPException(
+                status_code=403,
+                detail="This exam is no longer available to start."
+            )
 
         if attempt.attendance_status == "Assigned":
+
             if (
                 attempt.availability_start is None
                 or attempt.availability_end is None
-                or attempt.database_now < attempt.availability_start
-                or attempt.database_now >= attempt.availability_end
+                or (
+                    attempt.database_now + __import__("datetime").timedelta(hours=5, minutes=30)
+                    < attempt.availability_start
+                )
+                or (
+                    attempt.database_now + __import__("datetime").timedelta(hours=5, minutes=30)
+                    >= attempt.availability_end
+                )
             ):
                 raise HTTPException(
                     status_code=403,
@@ -459,8 +523,12 @@ def start_exam_attempt(exam_id: int, data: dict = Body(...)):
             conn.execute(
                 text("""
                     UPDATE exam_assignments
-                    SET started_at = NOW(),
-                        deadline_at = DATE_ADD(NOW(), INTERVAL :duration MINUTE),
+                    SET
+                        started_at = NOW(),
+                        deadline_at = DATE_ADD(
+                            NOW(),
+                            INTERVAL :duration MINUTE
+                        ),
                         attendance_status = 'Started'
                     WHERE exam_id = :exam_id
                       AND student_id = :student_id
@@ -471,16 +539,26 @@ def start_exam_attempt(exam_id: int, data: dict = Body(...)):
                     "student_id": student_id
                 }
             )
+
             attempt = conn.execute(
                 text("""
                     SELECT
-                        e.duration, e.availability_start, e.availability_end,
-                        ea.started_at, ea.deadline_at, NOW() AS database_now
+                        e.duration,
+                        e.availability_start,
+                        e.availability_end,
+                        ea.started_at,
+                        ea.deadline_at,
+                        NOW() AS database_now
                     FROM exam_assignments ea
-                    JOIN exams e ON e.exam_id = ea.exam_id
-                    WHERE ea.exam_id = :exam_id AND ea.student_id = :student_id
+                    JOIN exams e
+                        ON e.exam_id = ea.exam_id
+                    WHERE ea.exam_id = :exam_id
+                      AND ea.student_id = :student_id
                 """),
-                {"exam_id": exam_id, "student_id": student_id}
+                {
+                    "exam_id": exam_id,
+                    "student_id": student_id
+                }
             ).fetchone()
 
     return {
@@ -492,8 +570,6 @@ def start_exam_attempt(exam_id: int, data: dict = Body(...)):
         "availability_end": _serialize_datetime(attempt.availability_end),
         "current_time": _serialize_datetime(attempt.database_now)
     }
-
-
 @app.post("/questions/add")
 def add_question(question: dict = Body(...)):
 
@@ -2187,112 +2263,256 @@ def api_risk_score_student(student_id: int, exam_id: int):
 def api_exam_summary(body: dict = Body(...)):
     student_id = body.get("student_id")
     exam_id = body.get("exam_id")
+
     if not student_id or not exam_id:
         return {"error": "student_id and exam_id are required"}
 
     with engine.connect() as conn:
-        # Fetch student/exam meta + risk score
-        meta = conn.execute(text("""
-            SELECT
-                s.name AS student_name, s.roll_no,
-                e.exam_name,
-                r.exam_status,
-                LEAST(COALESCE((SELECT SUM(v2.risk_points) FROM violations v2
-                                WHERE v2.student_id = r.student_id AND v2.exam_id = r.exam_id), 0), 100)
-                    AS total_score
-            FROM risk_scores r
-            JOIN students s ON s.student_id = r.student_id
-            JOIN exams e ON e.exam_id = r.exam_id
-            WHERE r.student_id = :sid AND r.exam_id = :eid
-        """), {"sid": student_id, "eid": exam_id}).fetchone()
+
+        meta = conn.execute(
+            text("""
+                SELECT
+                    s.name AS student_name,
+                    s.roll_no,
+                    e.exam_name,
+                    r.exam_status,
+                    LEAST(
+                        COALESCE(
+                            (
+                                SELECT SUM(v2.risk_points)
+                                FROM violations v2
+                                WHERE v2.student_id = r.student_id
+                                  AND v2.exam_id = r.exam_id
+                            ),
+                            0
+                        ),
+                        100
+                    ) AS total_score
+                FROM risk_scores r
+                JOIN students s
+                    ON s.student_id = r.student_id
+                JOIN exams e
+                    ON e.exam_id = r.exam_id
+                WHERE r.student_id = :sid
+                  AND r.exam_id = :eid
+            """),
+            {
+                "sid": student_id,
+                "eid": exam_id
+            }
+        ).fetchone()
 
         if not meta:
             return {"error": "No exam data found for this student"}
 
-        # Aggregate violation counts and durations per type
-        viol_rows = conn.execute(text("""
-            SELECT violation_type, risk_points, details
-            FROM violations
-            WHERE student_id = :sid AND exam_id = :eid
-            ORDER BY timestamp ASC
-        """), {"sid": student_id, "eid": exam_id}).fetchall()
+        viol_rows = conn.execute(
+            text("""
+                SELECT
+                    violation_type,
+                    risk_points,
+                    details
+                FROM violations
+                WHERE student_id = :sid
+                  AND exam_id = :eid
+                ORDER BY timestamp ASC
+            """),
+            {
+                "sid": student_id,
+                "eid": exam_id
+            }
+        ).fetchall()
 
-    # Build aggregated stats
     counts = {}
     durations = {}
+
     for v in viol_rows:
-        vt = v.violation_type
+
+        vt = str(v.violation_type).strip().lower().replace(" ", "_")
+
         counts[vt] = counts.get(vt, 0) + 1
-        # Extract duration seconds from details string if present
+
         if v.details:
             import re
-            m = re.search(r'duration[=\s:]+([0-9.]+)s', v.details or "", re.IGNORECASE)
-            if m:
-                durations[vt] = durations.get(vt, 0.0) + float(m.group(1))
+
+            match = re.search(
+                r'duration[=\s:]+([0-9.]+)s',
+                str(v.details),
+                re.IGNORECASE
+            )
+
+            if match:
+                durations[vt] = (
+                    durations.get(vt, 0.0)
+                    + float(match.group(1))
+                )
 
     total_score = int(meta.total_score or 0)
-    if total_score > 60:
+    total_events = len(viol_rows)
+
+    if total_score >= 60:
         risk_level = "HIGH"
     elif total_score >= 30:
         risk_level = "MEDIUM"
     else:
         risk_level = "LOW"
 
-    # Build bullet lines
     bullet_lines = []
+
     if "looking_away" in counts:
         sec = durations.get("looking_away", 0)
-        dur_str = f" (approx. {int(sec)}s total)" if sec else ""
-        bullet_lines.append(f"- Looked away {counts['looking_away']} time(s){dur_str}")
+
+        duration_text = (
+            f" for approximately {int(sec)} seconds in total"
+            if sec
+            else ""
+        )
+
+        bullet_lines.append(
+            f"Looking away detected {counts['looking_away']} time(s){duration_text}"
+        )
+
     if "face_missing" in counts:
         sec = durations.get("face_missing", 0)
-        dur_str = f" (approx. {int(sec)}s total)" if sec else ""
-        bullet_lines.append(f"- Face missing {counts['face_missing']} time(s){dur_str}")
+
+        duration_text = (
+            f" for approximately {int(sec)} seconds in total"
+            if sec
+            else ""
+        )
+
+        bullet_lines.append(
+            f"Face missing detected {counts['face_missing']} time(s){duration_text}"
+        )
+
     if "multiple_persons" in counts:
-        bullet_lines.append(f"- Multiple persons detected {counts['multiple_persons']} time(s)")
+        bullet_lines.append(
+            f"Multiple persons detected {counts['multiple_persons']} time(s)"
+        )
+
     if "mobile_phone" in counts:
-        bullet_lines.append(f"- Mobile phone detected {counts['mobile_phone']} time(s)")
+        bullet_lines.append(
+            f"Mobile phone detected {counts['mobile_phone']} time(s)"
+        )
+
     if "face_detection_failure" in counts:
-        bullet_lines.append(f"- Camera/face detection failure {counts['face_detection_failure']} time(s)")
+        bullet_lines.append(
+            f"Face detection failure {counts['face_detection_failure']} time(s)"
+        )
+
     if "tab_switch" in counts:
-        bullet_lines.append(f"- Switched tabs/windows {counts['tab_switch']} time(s)")
+        bullet_lines.append(
+            f"Tab switch detected {counts['tab_switch']} time(s)"
+        )
 
-    violations_text = "\n".join(bullet_lines) if bullet_lines else "No violations recorded."
-    total_events = len(viol_rows)
+    violations_text = (
+        "\n".join(bullet_lines)
+        if bullet_lines
+        else "No violations recorded."
+    )
 
-    # Use Groq LLM for the natural-language assessment
-    prompt = f"""You are an exam proctoring AI. Generate a concise, professional behavioral assessment for a student exam session.
+    if risk_level == "HIGH":
+
+        fallback_assessment = (
+            f"The examination session recorded {total_events} proctoring "
+            f"violation event(s), including {', '.join(counts.keys()).replace('_', ' ')}. "
+            f"The risk score of {total_score}/100 indicates high-risk behavior, "
+            f"and the session requires faculty review for possible malpractice."
+        )
+
+    elif risk_level == "MEDIUM":
+
+        fallback_assessment = (
+            f"The examination session recorded {total_events} proctoring "
+            f"violation event(s), including {', '.join(counts.keys()).replace('_', ' ')}. "
+            f"The risk score of {total_score}/100 indicates moderate risk and "
+            f"the session should be reviewed by faculty."
+        )
+
+    elif total_events > 0:
+
+        fallback_assessment = (
+            f"The examination session recorded {total_events} proctoring "
+            f"violation event(s). The risk score of {total_score}/100 indicates "
+            f"low risk, but the recorded events should be reviewed."
+        )
+
+    else:
+
+        fallback_assessment = (
+            "No proctoring violations were recorded during the examination. "
+            "The student exhibited generally compliant behavior during the session."
+        )
+
+    prompt = f"""
+You are an exam proctoring AI.
+
+Generate ONLY a complete behavioral assessment for the examination session.
 
 Student: {meta.student_name} ({meta.roll_no})
 Exam: {meta.exam_name}
-Risk Score: {total_score}/100 ({risk_level})
+Risk Score: {total_score}/100
+Risk Level: {risk_level}
 Exam Status: {meta.exam_status}
 Total Violation Events: {total_events}
 
-Violation Summary:
+Actual Violations:
 {violations_text}
 
-Write a 2-3 sentence assessment of the student's behavior during the exam. Be direct and factual.
-If risk is HIGH, flag potential malpractice concerns. If LOW, note clean behavior.
-Do not use markdown, bullet points, or headers — plain paragraph text only."""
+Requirements:
+- Write exactly 2 or 3 complete sentences.
+- Describe only the actual violations provided above.
+- Do not invent any additional violations.
+- Mention the important detected behaviors.
+- If risk is HIGH, state that the session requires faculty review and may indicate possible malpractice.
+- If risk is MEDIUM, state that the session requires review.
+- If there are no violations, state that the behavior was generally compliant.
+- Do not include the student's name.
+- Do not include the exam name.
+- Do not include the risk score as a separate line.
+- Do not use headings.
+- Do not use bullet points.
+- Do not use markdown.
+- Return only the assessment paragraph.
+"""
+
+    assessment = ""
 
     try:
         response = client.chat.completions.create(
             model="openai/gpt-oss-20b",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=200,
-            temperature=0.4,
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            max_tokens=500,
+            temperature=0.2,
         )
-        assessment = response.choices[0].message.content.strip()
+
+        assessment = (
+            response.choices[0].message.content or ""
+        ).strip()
+
+        assessment = assessment.replace(
+            "ASSESSMENT:",
+            ""
+        ).replace(
+            "Assessment:",
+            ""
+        ).strip()
+
+        words = assessment.split()
+
+        if (
+            len(words) < 15
+            or len(assessment) < 80
+            or not any(char in assessment for char in ".!?")
+        ):
+            assessment = fallback_assessment
+
     except Exception:
-        # Fallback to template if LLM fails
-        if risk_level == "HIGH":
-            assessment = (f"High risk behavior detected. Frequent violations including "
-                          f"{', '.join(counts.keys())} suggest possible malpractice.")
-        elif risk_level == "MEDIUM":
-            assessment = f"Moderate risk detected with {total_events} violation event(s). Warrants review."
-        else:
-            assessment = f"Low risk. Student exhibited generally compliant behavior during the exam."
+        assessment = fallback_assessment
 
     summary = f"""Student: {meta.student_name} ({meta.roll_no})
 Exam: {meta.exam_name}
@@ -2305,9 +2525,9 @@ Violations:
 Assessment:
 {assessment}"""
 
-    return {"summary": summary}
-
-
+    return {
+        "summary": summary
+    }
 @app.get("/faculty/violations")
 def get_violations():
     with engine.connect() as conn:
@@ -3100,49 +3320,54 @@ def student_view_answers(student_id: int, exam_id: int):
 
     with engine.connect() as conn:
 
-        result = conn.execute(
-
+        result_status = conn.execute(
             text("""
+                SELECT status
+                FROM exam_results
+                WHERE student_id = :student_id
+                  AND exam_id = :exam_id
+            """),
+            {
+                "student_id": student_id,
+                "exam_id": exam_id
+            }
+        ).fetchone()
 
+        if not result_status:
+            raise HTTPException(
+                status_code=404,
+                detail="Exam result not found."
+            )
+
+        if result_status.status == "Invalid":
+            raise HTTPException(
+                status_code=403,
+                detail="Answer sheet is unavailable while the result is under faculty review."
+            )
+
+        result = conn.execute(
+            text("""
                 SELECT
-
                     q.question_id,
-
                     q.question_text,
-
                     q.option_a,
                     q.option_b,
                     q.option_c,
                     q.option_d,
-
                     q.correct_option,
-
                     sa.selected_option
-
                 FROM questions q
-
                 LEFT JOIN student_answers sa
-
                     ON q.question_id = sa.question_id
-
                     AND sa.student_id = :student_id
-
                     AND sa.exam_id = :exam_id
-
                 WHERE q.exam_id = :exam_id
-
                 ORDER BY q.question_id
-
             """),
-
             {
-
                 "student_id": student_id,
-
                 "exam_id": exam_id
-
             }
-
         )
 
         answers = []
@@ -3150,35 +3375,21 @@ def student_view_answers(student_id: int, exam_id: int):
         for row in result:
 
             answers.append({
-
                 "question_id": row.question_id,
-
                 "question_text": row.question_text,
-
                 "option_a": row.option_a,
-
                 "option_b": row.option_b,
-
                 "option_c": row.option_c,
-
                 "option_d": row.option_d,
-
                 "student_answer": row.selected_option,
-
                 "correct_answer": row.correct_option,
-
                 "is_correct":
-
                     row.selected_option == row.correct_option
-
                     if row.selected_option
-
                     else False
-
             })
 
         return answers
-
 
 # Serve frontend files at http://127.0.0.1:8000/
 app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")

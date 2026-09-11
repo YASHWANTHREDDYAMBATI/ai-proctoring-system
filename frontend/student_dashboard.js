@@ -89,6 +89,9 @@ function displayResult() {
 
     window.selectedExam = result;
 
+    const isInvalid = result.status === "Invalid";
+    const isCancelled = result.status === "Cancelled";
+
     const badgeColor =
         result.status === "Completed"
             ? "#16a34a"
@@ -98,13 +101,6 @@ function displayResult() {
         result.result === "Pass"
             ? "linear-gradient(90deg,#16a34a,#4ade80)"
             : "linear-gradient(90deg,#dc2626,#f87171)";
-
-    const aiSummary =
-        result.violation_count == 0
-            ? "✅ AI Summary: No suspicious behaviour detected."
-            : result.violation_count <= 3
-            ? "⚠️ AI Summary: Minor violations detected. Faculty review recommended."
-            : "🚨 AI Summary: Multiple violations detected. Exam requires review.";
 
     let html = `
 
@@ -147,7 +143,95 @@ function displayResult() {
 
     `;
 
-    if(result.status==="Cancelled"){
+    if (isInvalid) {
+
+        html += `
+
+        <div style="
+            background:#fff5f5;
+            border:1px solid #fecaca;
+            border-left:7px solid #dc2626;
+            border-radius:14px;
+            padding:35px;
+            text-align:center;
+        ">
+
+            <div style="
+                width:70px;
+                height:70px;
+                margin:0 auto 20px;
+                background:#fee2e2;
+                border-radius:50%;
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                font-size:34px;
+            ">
+                ⚠️
+            </div>
+
+            <h2 style="
+                margin:0 0 15px;
+                color:#dc2626;
+                font-size:28px;
+            ">
+                Exam Invalid
+            </h2>
+
+            <p style="
+                color:#334155;
+                font-size:17px;
+                line-height:1.8;
+                margin:0 auto;
+                max-width:750px;
+            ">
+                You have violated the examination rules during this exam.
+                Your examination has been marked as
+                <b style="color:#dc2626;">Invalid</b>
+                due to detected proctoring violations.
+            </p>
+
+            <div style="
+                margin:25px auto 0;
+                max-width:500px;
+                padding:18px;
+                background:white;
+                border:1px solid #fecaca;
+                border-radius:10px;
+                text-align:left;
+            ">
+
+                <p style="margin:0 0 10px;">
+                    <b>⚠️ Proctoring Violations:</b>
+                    ${result.violation_count}
+                </p>
+
+                <p style="margin:0;">
+                    <b>📋 Status:</b>
+                    <span style="color:#dc2626;font-weight:bold;">
+                        Invalid
+                    </span>
+                </p>
+
+            </div>
+
+            <p style="
+                margin:25px 0 0;
+                color:#64748b;
+                font-size:14px;
+                line-height:1.7;
+            ">
+                Your examination result is not available because the attempt
+                has been marked as invalid. Please contact your faculty for
+                further clarification.
+            </p>
+
+        </div>
+
+        `;
+
+    }
+    else if (isCancelled) {
 
         html += `
 
@@ -158,15 +242,23 @@ function displayResult() {
             padding:25px;
         ">
 
-            <h2 style="margin-top:0;color:#dc2626;">
+            <h2 style="
+                margin-top:0;
+                color:#dc2626;
+            ">
                 ❌ Exam Cancelled
             </h2>
 
-            <p><b>Result :</b> ${result.result}</p>
+            <p>
+                <b>Result :</b> ${result.result}
+            </p>
 
-            <p><b>Violations :</b> ${result.violation_count}</p>
+            <p>
+                <b>Violations :</b> ${result.violation_count}
+            </p>
 
-            <p><b>Reason :</b>
+            <p>
+                <b>Reason :</b>
                 ${result.cancel_reason || "Not Available"}
             </p>
 
@@ -175,7 +267,14 @@ function displayResult() {
         `;
 
     }
-    else{
+    else {
+
+        const aiSummary =
+            result.violation_count == 0
+                ? "✅ AI Summary: No suspicious behaviour detected."
+                : result.violation_count <= 3
+                ? "⚠️ AI Summary: Minor violations detected. Faculty review recommended."
+                : "🚨 AI Summary: Multiple violations detected. Exam requires review.";
 
         html += `
 
@@ -186,25 +285,53 @@ function displayResult() {
         ">
 
             <div class="result-item">
-                <div style="color:#64748b;">📊 Score</div>
-                <h2>${result.score}/${result.total_questions}</h2>
+
+                <div style="color:#64748b;">
+                    📊 Score
+                </div>
+
+                <h2>
+                    ${result.score}/${result.total_questions}
+                </h2>
+
             </div>
 
             <div class="result-item">
-                <div style="color:#64748b;">🏆 Result</div>
-                <h2 style="color:${result.result==="Pass" ? "#16a34a" : "#dc2626"};">
+
+                <div style="color:#64748b;">
+                    🏆 Result
+                </div>
+
+                <h2 style="
+                    color:${result.result === "Pass" ? "#16a34a" : "#dc2626"};
+                ">
                     ${result.result}
                 </h2>
+
             </div>
 
             <div class="result-item">
-                <div style="color:#64748b;">⚠️ Violations</div>
-                <h2>${result.violation_count}</h2>
+
+                <div style="color:#64748b;">
+                    ⚠️ Violations
+                </div>
+
+                <h2>
+                    ${result.violation_count}
+                </h2>
+
             </div>
 
             <div class="result-item">
-                <div style="color:#64748b;">📈 Percentage</div>
-                <h2>${result.percentage}%</h2>
+
+                <div style="color:#64748b;">
+                    📈 Percentage
+                </div>
+
+                <h2>
+                    ${result.percentage}%
+                </h2>
+
             </div>
 
         </div>
@@ -281,7 +408,10 @@ function displayResult() {
 
         </div>
 
-        <div style="margin-top:25px;text-align:center;">
+        <div style="
+            margin-top:25px;
+            text-align:center;
+        ">
 
             <button
                 onclick="viewStudentAnswers()"
@@ -308,7 +438,6 @@ function displayResult() {
     html += `</div>`;
 
     document.getElementById("resultDisplay").innerHTML = html;
-
 }
 async function viewStudentAnswers(){
 

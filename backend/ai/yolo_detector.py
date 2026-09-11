@@ -1,12 +1,23 @@
 from ultralytics import YOLO
+import torch
+
+# Use a GPU if available — this matters way more for "1 sec" than any other tweak
+DEVICE = 0 if torch.cuda.is_available() else "cpu"
 
 model = YOLO("yolov8n.pt")
+model.to(DEVICE)
 
-# YOLO output is fairly noisy; a small threshold improves stability.
-DEFAULT_CONF_THRESHOLD = 0.25   # general objects
-PERSON_CONF_THRESHOLD = 0.55   # stricter for person to avoid partial/background detections
-PHONE_CONF_THRESHOLD = 0.50    # stricter for mobile phone (reduce false positives)
-PERSON_MIN_AREA_FRAC = 0.03    # person bbox must cover ≥3% of image area (filters tiny ghosts)
+# Warm up once at import time — first inference call is always slow (CUDA context, graph build, etc.)
+_ = model(torch.zeros(1, 3, 640, 640), device=DEVICE, verbose=False)
+
+DEFAULT_CONF_THRESHOLD = 0.25
+PERSON_CONF_THRESHOLD = 0.55
+PHONE_CONF_THRESHOLD = 0.30
+PERSON_MIN_AREA_FRAC = 0.03
+PHONE_CLASS_ID = 67
+
+# Lowest threshold across everything you care about — one inference call, one NMS pass
+_MIN_CONF_FOR_PASS = min(DEFAULT_CONF_THRESHOLD, PHONE_CONF_THRESHOLD)
 
 
 def _normalize_class_name(name: str) -> str:
@@ -14,7 +25,14 @@ def _normalize_class_name(name: str) -> str:
 
 
 def detect_objects(image_path: str, conf_threshold: float = DEFAULT_CONF_THRESHOLD):
-    results = model(image_path)
+    results = model(
+        image_path,
+        imgsz=640,
+        conf=_MIN_CONF_FOR_PASS,
+        device=DEVICE,
+        half=(DEVICE != "cpu"),   # fp16 on GPU — meaningful speedup, negligible accuracy loss
+        verbose=False,
+    )
 
     mobile_detected = False
     mobile_confidence = 0.0
@@ -26,7 +44,6 @@ def detect_objects(image_path: str, conf_threshold: float = DEFAULT_CONF_THRESHO
         if result.boxes is None:
             continue
 
-        # Image dimensions for area filtering
         img_h, img_w = result.orig_shape if result.orig_shape else (480, 640)
         img_area = img_w * img_h
 
@@ -36,32 +53,34 @@ def detect_objects(image_path: str, conf_threshold: float = DEFAULT_CONF_THRESHO
             class_norm = _normalize_class_name(class_name)
             confidence = float(box.conf[0])
 
-            if confidence < conf_threshold:
-                continue
+            # per-class thresholds applied here instead of a second model call
+            if cls_id == PHONE_CLASS_ID:
+                if confidence < PHONE_CONF_THRESHOLD:
+                    continue
+            elif class_norm == "person":
+                if confidence < PERSON_CONF_THRESHOLD:
+                    continue
+            else:
+                if confidence < conf_threshold:
+                    continue
 
             xyxy = box.xyxy[0].tolist()
-            bbox = [round(v, 1) for v in xyxy]  # [x1, y1, x2, y2]
+            bbox = [round(v, 1) for v in xyxy]
 
-            detections.append({
-                "class": class_name,
-                "confidence": round(confidence, 2),
-                "bbox": bbox
-            })
-
-            # Mobile phone: COCO class 67 = "cell phone", stricter threshold
-            if class_norm == "cell phone" or cls_id == 67 or (
-                "cell" in class_norm and "phone" in class_norm
-            ):
-                if confidence >= PHONE_CONF_THRESHOLD:
+            if cls_id == PHONE_CLASS_ID:
+                detections.append({"class": "cell phone", "confidence": round(confidence, 2), "bbox": bbox})
+                if confidence > mobile_confidence:
                     mobile_detected = True
                     mobile_confidence = round(confidence, 2)
                     mobile_bbox = bbox
+                continue
+
+            detections.append({"class": class_name, "confidence": round(confidence, 2), "bbox": bbox})
 
             if class_norm == "person":
-                # Apply stricter confidence + minimum size to reduce false positives
                 box_area = (xyxy[2] - xyxy[0]) * (xyxy[3] - xyxy[1])
                 area_frac = box_area / img_area if img_area > 0 else 0
-                if confidence >= PERSON_CONF_THRESHOLD and area_frac >= PERSON_MIN_AREA_FRAC:
+                if area_frac >= PERSON_MIN_AREA_FRAC:
                     person_count += 1
 
     return {
@@ -72,4 +91,3 @@ def detect_objects(image_path: str, conf_threshold: float = DEFAULT_CONF_THRESHO
         "multiple_persons": person_count > 1,
         "detections": detections,
     }
-
